@@ -1,0 +1,65 @@
+# ==========================================
+# 1. FRONTEND (React / Vite / Node)
+# ==========================================
+node_modules/
+frontend/node_modules/
+dist/
+frontend/dist/
+build/
+frontend/build/
+.pnpm-store/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ==========================================
+# 2. SECRETS & ENVIRONMENT VARIABLES
+# ==========================================
+.env
+.env.*
+*.env
+backend/.env
+frontend/.env
+
+# ==========================================
+# 3. BACKEND (Python / FastAPI / Venv)
+# ==========================================
+venv/
+.venv/
+env/
+backend/venv/
+backend/.venv/
+__pycache__/
+*.py[codz]
+*$py.class
+*.so
+
+# ==========================================
+# 4. IDEs & EDITORS
+# ==========================================
+.vscode/
+.idea/
+.DS_Store
+
+# ==========================================
+# 5. DATA & OUTPUTS (From your original config)
+# ==========================================
+data/*
+!data/parcel_diridon_san_jose_sample.geojson
+!data/parcel_portfolio_san_jose_sample.geojson
+
+!data/heatmaps/
+data/heatmaps/*
+!data/heatmaps/heatmap_parcel_*.json
+
+!data/satellite/
+data/satellite/*
+!data/satellite/satellite_parcel_*.json
+
+!data/street_view/
+data/street_view/*
+!data/street_view/streetview_parcel_*.json
+
+!data/env_params/
+data/env_params/*
+!data/env_params/env_params_parcel_*.json
