@@ -28,7 +28,7 @@ export default function LoadingStatus() {
       <div>
         <div className="loading-msg">{MESSAGES[msgIndex]}</div>
         <div className="loading-sub">
-          {seconds}s elapsed — this can take up to 30s per site, it's normal.
+           {seconds}s elapsed — processing may take a bit longer for detailed sites, this is completely normal.
         </div>
       </div>
     </div>
