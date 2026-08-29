@@ -9,7 +9,7 @@ import coverBg from "./assets/cover_bg.png";
 
 
 // e.g. "https://solarshield-backend.onrender.com"
-const BACKEND_URL = "http://127.0.0.1:8000";
+const BACKEND_URL = "https://fortyguard-solar-analytics-main-production.up.railway.app";
 
 export default function App() {
   const [rankedSites, setRankedSites] = useState([]);
