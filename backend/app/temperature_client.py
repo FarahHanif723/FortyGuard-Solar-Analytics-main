@@ -82,26 +82,8 @@ def _extract_avg_temp_celsius(result: dict) -> float:
     raise ValueError(f"Could not find temperature in response: {result}")
 
 
-def get_solar_site_data(lat: float, lon: float, date: str = None, time_str: str = "14:00") -> dict:
-    """
-    The only function the rest of the app should call.
-
-    Returns:
-      {
-        "temperature_c": float, "temperature_f": float,
-        "ghi": float, "dni": float, "dhi": float,   # W/m^2
-        "heat_index_c": float, "humidity_percent": float,
-        "source": "live" | "mock"
-      }
-    """
-    if USE_MOCK:
-        return {
-            "temperature_c": 42.5, "temperature_f": 108.5,
-            "ghi": 850.0, "dni": 720.0, "dhi": 130.0,
-            "heat_index_c": 47.0, "humidity_percent": 18.0,
-            "source": "mock"
-        }
-
+def _fetch_solar_site_data_live(lat: float, lon: float, date: str = None, time_str: str = "14:00") -> dict:
+    """The actual live API calls -- do not call this directly, use get_solar_site_data()."""
     if date is None:
         # Use a few days back, not today -- very recent dates can have a
         # short processing delay and return zero cells even though
@@ -110,12 +92,17 @@ def get_solar_site_data(lat: float, lon: float, date: str = None, time_str: str 
         date = (datetime.date.today() - datetime.timedelta(days=5)).strftime("%Y-%m-%d")
 
     # Step 1: ambient temperature from the heatmap
+    # timeout=90: fail fast instead of the client's long default wait, so
+    # one slow site doesn't hold up the whole /rank-sites request. The
+    # site_ranker already skips sites that raise, so this just makes the
+    # failure happen in ~90s instead of up to 600s+.
     heatmap_resp = client.create_heatmap(
         polygon_aoi=_small_polygon(lat, lon),
         start_date=date,
         start_time=time_str,
         filter_type=1,
         granularity=60,
+        timeout=90,
     )
     result = heatmap_resp["result"]
     temp_c = _extract_avg_temp_celsius(result)
@@ -128,6 +115,7 @@ def get_solar_site_data(lat: float, lon: float, date: str = None, time_str: str 
         start_date=date,
         start_time=time_str,
         filter_type=1,
+        timeout=90,
     )
     location = env_resp["result"]["locations"][0]
     solar = location.get("solar_irradiance", {}).get("clear_sky", {})
@@ -143,6 +131,48 @@ def get_solar_site_data(lat: float, lon: float, date: str = None, time_str: str 
         "humidity_percent": params.get("relative_humidity_percent"),
         "source": "live",
     }
+
+
+# In-memory TTL cache: keyed by (lat, lon) rounded to ~1km precision, so
+# repeated/demo requests for the same site return instantly instead of
+# re-hitting FortyGuard's slow submit-then-poll pipeline every time.
+# Cache clears itself naturally after CACHE_TTL_SECONDS, so data never
+# goes more than ~30 minutes stale -- still "live" for a temperature demo.
+_cache: dict = {}
+CACHE_TTL_SECONDS = 30 * 60  # 30 minutes
+
+
+def get_solar_site_data(lat: float, lon: float, date: str = None, time_str: str = "14:00") -> dict:
+    """
+    The only function the rest of the app should call.
+
+    Returns:
+      {
+        "temperature_c": float, "temperature_f": float,
+        "ghi": float, "dni": float, "dhi": float,   # W/m^2
+        "heat_index_c": float, "humidity_percent": float,
+        "source": "live" | "mock",
+        "cached": bool  # True if served from the 30-minute cache
+      }
+    """
+    if USE_MOCK:
+        return {
+            "temperature_c": 42.5, "temperature_f": 108.5,
+            "ghi": 850.0, "dni": 720.0, "dhi": 130.0,
+            "heat_index_c": 47.0, "humidity_percent": 18.0,
+            "source": "mock", "cached": False,
+        }
+
+    cache_key = (round(lat, 2), round(lon, 2), date, time_str)
+    cached_entry = _cache.get(cache_key)
+    if cached_entry is not None:
+        cached_time, cached_data = cached_entry
+        if time.time() - cached_time < CACHE_TTL_SECONDS:
+            return {**cached_data, "cached": True}
+
+    data = _fetch_solar_site_data_live(lat, lon, date, time_str)
+    _cache[cache_key] = (time.time(), data)
+    return {**data, "cached": False}
 
 
 if __name__ == "__main__":
